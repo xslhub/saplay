@@ -1,0 +1,12 @@
+# Default play mode, if none is selected
+PLAY_MODE_DIRS="directories" # -b
+PLAY_MODE_FILES="files" # -f
+play_mode="$PLAY_MODE_DIRS"
+# The media player to use
+player="mpv"
+# Default arguments to use with player
+args="-fs"
+# Additional arguments supplied to player when using -o
+args_opt="--audio-device='pulse/alsa_output.pci-0000_03_00.1.hdmi-stereo'"
+# Regex used to find media files
+regex='.*\.\(mkv\|avi\|mpeg\|mpg\|mp4\)'

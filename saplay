@@ -1,0 +1,291 @@
+#!/bin/sh
+
+#
+# saplay - A simple auto play script
+# Copyright (C) 2024 Simon Linimair
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+SCRIPT_NAME="saplay"
+SCRIPT_VERSION="0.9.4"
+
+#
+# Files and directories
+#
+
+CONFIG_FILE="$HOME/.config/$SCRIPT_NAME/config"
+STATE_DIR="$HOME/.local/state/$SCRIPT_NAME/"
+HISTORY_FILE="$STATE_DIR/history"
+
+#
+# Settings defaults (if CONFIG_FILE is not found)
+#
+
+# Default play mode, if none is selected
+PLAY_MODE_DIRS="directories" # -b
+PLAY_MODE_FILES="files" # -f
+play_mode="$PLAY_MODE_DIRS"
+# The media player to use
+player="mpv"
+# Default parameters to use with player
+args="-fs"
+# Additional parameters supplied to player when using -o
+args_opt="--audio-device='pulse/alsa_output.pci-0000_03_00.1.hdmi-stereo'"
+# Regex used to find media files
+regex='.*\.\(mkv\|avi\|mpeg\|mpg\|mp4\)'
+
+#
+# Creates the history file if required
+#
+create_history_if_required()
+{
+	mkdir -p $STATE_DIR
+	touch $HISTORY_FILE
+}
+
+#
+# Adds the file given as parameter to the history, if it is not in it already
+# $1	File to add
+#
+update_history()
+{
+	local_path=$(realpath $1)
+	if grep -Fxq "$local_path" $HISTORY_FILE
+	then
+		# File already in history
+		return	
+	fi
+	echo $local_path >> $HISTORY_FILE
+}
+
+#
+# Prints all history entries that start with the path given as parameter
+# $1	Path to search for
+#
+print_history()
+{
+	local_path=$(realpath $1)
+
+	n=0
+	for entry in $(grep "^$local_path" $HISTORY_FILE)
+	do
+		n=$((n + 1))
+		printf "%02d\t%s\n" $n $entry
+	done
+}
+
+#
+# Plays the file given as parameter
+# $1	Path to the file to play
+# $2	If not set to 0, nothing is played, $2 is decremented and returned
+# $?	$2 - 1 or 0 if it was 0
+#
+play_file()
+{
+	local_file=$(realpath $1)
+	local_skip=$2
+	if [ "$local_skip" -eq "0" ]
+	then
+		sh -c "$player $args $local_file"
+		if [ "$?" -ne "0" ]
+		then
+			# ctrl+c pressed
+			exit 1
+		fi
+		update_history $local_file
+	else
+		echo "Skipping $local_file..."
+		local_skip=$((local_skip - 1))
+	fi
+	return $local_skip
+}
+
+#
+# Plays all files inside the directories of the path given
+# $1	Path to search files in
+# $2	Amount of files to skip
+# $?	0, if at least one file was played
+#
+play_directories()
+{
+	local_path=$(realpath $1)
+	local_skip=$2
+	local_rc=1
+
+	for d in $(find "$local_path" -mindepth 1 -maxdepth 1 -type d \
+		| sort -V)
+	do
+		for f in $(find $d -maxdepth 1 -type f -iregex "$regex" \
+			| sort -V)
+		do
+			play_file $f $local_skip
+			local_skip=$?
+			local_rc=0
+		done
+	done
+	return $local_rc
+}
+
+#
+# Plays all files inside the path given
+# $1	Path to search files in
+# $2	Amount of files to skip
+# $?	0, if at least one file was played
+#
+play_files()
+{
+	local_path=$(realpath $1)
+	local_skip=$2
+	local_rc=1
+
+	for f in $(find "$local_path" -maxdepth 1 -type f -iregex "$regex" \
+		| sort -V)
+	do
+		play_file $f $local_skip
+		local_skip=$?
+		local_rc=0
+	done
+	return $local_rc
+}
+
+#
+# Prints a usage message
+# $1	If set to "invalid", "Invalid usage." is printed
+#
+print_usage()
+{
+	if [ "$1" = "invalid" ]
+	then
+		echo "Invalid usage." >&2
+	fi
+	echo "Usage:"
+	echo "   $SCRIPT_NAME [options]"
+	echo "Options:"
+	echo "   -d <path>	Scan for directories"
+	echo "   -f <path>	Scan for files"
+	echo "   -h <path>	Get history of played files in <path>"
+	echo "   --help	Display usage message"
+	echo "   -o		Use optional parameters set in the config file"
+	echo "   -s <n>	Skip <n> media files"
+	echo "   --version	Print version information"
+	echo "Press <ctrl+c> to stop. Press <q> to skip."
+	echo "Without a path given, the working directory is used as path."
+	echo "Without any parameters $SCRIPT_NAME will try -d and -f."
+}
+
+#
+# Exits if the parameter given is not numeric
+# $1	Parameter to check
+#
+exit_if_not_numeric()
+{
+	# Check if skip is numeric
+	if [ "$skip" -gt "-1" 2>/dev/null ]
+	then
+		echo "Skipping $skip..."
+	else
+		print_usage "invalid"
+		exit 1
+	fi
+}
+
+#
+# Main
+#
+
+# Files to skip
+skip=0
+# Path to search in
+path="."
+
+test -f $CONFIG_FILE && . $CONFIG_FILE
+create_history_if_required
+
+if [ "$#" -eq "1" ]
+then
+	case "$1" in
+	-d)
+		play_mode="$PLAY_MODE_DIRS"
+		;;
+	-f)
+		play_mode="$PLAY_MODE_FILES"
+		;;
+	-o)
+		args="$args $args_opt"
+		;;
+	-h)
+		print_history $path
+		exit 0
+		;;
+	--help)
+		print_usage
+		exit 0
+		;;
+	--version)
+		echo "$SCRIPT_NAME $SCRIPT_VERSION"
+		exit 0
+		;;
+	*)
+		print_usage "invalid"
+		exit 1
+		;;
+	esac
+else
+	while getopts "d:f:g:h:os:" opt
+	do
+		case "$opt" in
+		d)
+			play_mode="$PLAY_MODE_DIRS"
+			path="${OPTARG}"
+			;;
+		f)
+			play_mode="$PLAY_MODE_FILES"
+			path="${OPTARG}"
+			;;
+		h)
+			path="${OPTARG}"
+			print_history $path
+			exit 0
+			;;
+		o)
+			args="$args $args_opt"
+			;;
+		s)
+			skip="${OPTARG}"
+			;;
+		* | \? | :)
+			print_usage "invalid"
+			exit 1
+			;;
+		esac
+	done
+fi
+
+if [ "$play_mode" = "$PLAY_MODE_DIRS" ]
+then
+	play_directories $path $skip
+	if [ $? -ne "0" ]
+	then
+		echo "Failed to play directories. Trying to play files..." >&2
+		play_files $path $skip
+	fi
+else
+	play_files $path $skip
+	if [ $? -ne "0" ]
+	then
+		echo "Failed to play files. Trying to play directories..." >&2
+		play_directories $path $skip
+	fi
+fi
