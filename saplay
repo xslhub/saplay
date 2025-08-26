@@ -15,11 +15,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 
 SCRIPT_NAME="saplay"
-SCRIPT_VERSION="0.9.4"
+SCRIPT_VERSION="0.9.5"
 
 #
 # Files and directories
@@ -51,8 +51,8 @@ regex='.*\.\(mkv\|avi\|mpeg\|mpg\|mp4\)'
 #
 create_history_if_required()
 {
-	mkdir -p $STATE_DIR
-	touch $HISTORY_FILE
+	mkdir -p "$STATE_DIR"
+	touch "$HISTORY_FILE"
 }
 
 #
@@ -61,13 +61,13 @@ create_history_if_required()
 #
 update_history()
 {
-	local_path=$(realpath $1)
-	if grep -Fxq "$local_path" $HISTORY_FILE
+	local_path=$(realpath "$1")
+	if grep -Fxq "$local_path" "$HISTORY_FILE"
 	then
 		# File already in history
 		return	
 	fi
-	echo $local_path >> $HISTORY_FILE
+	echo $local_path >> "$HISTORY_FILE"
 }
 
 #
@@ -76,13 +76,13 @@ update_history()
 #
 print_history()
 {
-	local_path=$(realpath $1)
+	local_path=$(realpath "$1")
 
 	n=0
-	for entry in $(grep "^$local_path" $HISTORY_FILE)
+	grep "^$local_path" "$HISTORY_FILE" | while IFS= read -r entry
 	do
 		n=$((n + 1))
-		printf "%02d\t%s\n" $n $entry
+		printf "%02d\t%s\n" $n "$entry"
 	done
 }
 
@@ -94,17 +94,18 @@ print_history()
 #
 play_file()
 {
-	local_file=$(realpath $1)
+	local_file=$(realpath "$1")
 	local_skip=$2
+
 	if [ "$local_skip" -eq "0" ]
 	then
-		sh -c "$player $args $local_file"
+		sh -c "$player $args \"$local_file\""
 		if [ "$?" -ne "0" ]
 		then
 			# ctrl+c pressed
 			exit 1
 		fi
-		update_history $local_file
+		update_history "$local_file"
 	else
 		echo "Skipping $local_file..."
 		local_skip=$((local_skip - 1))
@@ -120,21 +121,22 @@ play_file()
 #
 play_directories()
 {
-	local_path=$(realpath $1)
+	local_path=$(realpath "$1")
 	local_skip=$2
 	local_rc=1
 
-	for d in $(find "$local_path" -mindepth 1 -maxdepth 1 -type d \
-		| sort -V)
+	while IFS= read -r d
 	do
-		for f in $(find $d -maxdepth 1 -type f -iregex "$regex" \
-			| sort -V)
+		while IFS= read -r f
 		do
-			play_file $f $local_skip
+			play_file "$f" "$local_skip"
 			local_skip=$?
 			local_rc=0
-		done
-	done
+		done < <(find "$d" -maxdepth 1 -type f -iregex "$regex" \
+			| sort -V)
+	done < <(find "$local_path" -mindepth 1 -maxdepth 1 -type d \
+		| sort -V)
+
 	return $local_rc
 }
 
@@ -146,17 +148,17 @@ play_directories()
 #
 play_files()
 {
-	local_path=$(realpath $1)
+	local_path=$(realpath "$1")
 	local_skip=$2
 	local_rc=1
 
-	for f in $(find "$local_path" -maxdepth 1 -type f -iregex "$regex" \
-		| sort -V)
+	while IFS= read -r f
 	do
-		play_file $f $local_skip
+		play_file "$f" "$local_skip"
 		local_skip=$?
 		local_rc=0
-	done
+	done < <(find "$local_path" -maxdepth 1 -type f -iregex "$regex" | sort -V)
+	
 	return $local_rc
 }
 
@@ -191,10 +193,10 @@ print_usage()
 #
 exit_if_not_numeric()
 {
-	# Check if skip is numeric
-	if [ "$skip" -gt "-1" 2>/dev/null ]
+	# Check if parameter is numeric
+	if [ "$1" -gt "-1" 2>/dev/null ]
 	then
-		echo "Skipping $skip..."
+		echo "Skipping $1..."
 	else
 		print_usage "invalid"
 		exit 1
@@ -226,7 +228,7 @@ then
 		args="$args $args_opt"
 		;;
 	-h)
-		print_history $path
+		print_history "$path"
 		exit 0
 		;;
 	--help)
@@ -243,7 +245,7 @@ then
 		;;
 	esac
 else
-	while getopts "d:f:g:h:os:" opt
+	while getopts "d:f:h:os:" opt
 	do
 		case "$opt" in
 		d)
@@ -264,6 +266,7 @@ else
 			;;
 		s)
 			skip="${OPTARG}"
+			exit_if_not_numeric $skip
 			;;
 		* | \? | :)
 			print_usage "invalid"
