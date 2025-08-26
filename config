@@ -1,5 +1,5 @@
 # Default play mode, if none is selected
-PLAY_MODE_DIRS="directories" # -b
+PLAY_MODE_DIRS="directories" # -d
 PLAY_MODE_FILES="files" # -f
 play_mode="$PLAY_MODE_DIRS"
 # The media player to use
