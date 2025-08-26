@@ -31,7 +31,7 @@ $ saplay -s 3
 ### Skipping the first six episodes and using a different audio sink
 
 ```
-$ saplay -o -s 6
+$ saplay -os 6
 ```
 
 ## Documentation
@@ -76,7 +76,7 @@ Without any parameters saplay will try -d and -f.
 ## Installation
 
 Just copy `saplay` to any directory in your `$PATH`.
-It can be in `/usr/local/bin`, `$HOME/.local/bin` or any other directory you want use.
+It can be in `/usr/local/bin`, `$HOME/.local/bin` or any other directory you want to use.
 ```
 # Use any directory in your $PATH you want, instead of /usr/local/bin
 chmod +x saplay
@@ -93,7 +93,7 @@ can be changed in the config file `~/.config/saplay/config`
 
 ```
 # Default play mode, if none is selected
-PLAY_MODE_DIRS="directories" # -b
+PLAY_MODE_DIRS="directories" # -d
 PLAY_MODE_FILES="files" # -f
 play_mode="$PLAY_MODE_DIRS"
 # The movie player to use
