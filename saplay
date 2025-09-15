@@ -19,7 +19,7 @@
 #
 
 SCRIPT_NAME="saplay"
-SCRIPT_VERSION="0.9.5"
+SCRIPT_VERSION="0.9.6"
 
 #
 # Files and directories
@@ -175,6 +175,7 @@ print_usage()
 	echo "Usage:"
 	echo "   $SCRIPT_NAME [options]"
 	echo "Options:"
+	echo "   -a <args>	Append additional arguments to player"
 	echo "   -d <path>	Scan for directories"
 	echo "   -f <path>	Scan for files"
 	echo "   -h <path>	Get history of played files in <path>"
@@ -245,9 +246,12 @@ then
 		;;
 	esac
 else
-	while getopts "d:f:h:os:" opt
+	while getopts "a:d:f:h:os:" opt
 	do
 		case "$opt" in
+		a)
+			args="$args ${OPTARG}"
+			;;
 		d)
 			play_mode="$PLAY_MODE_DIRS"
 			path="${OPTARG}"
