@@ -34,6 +34,12 @@ $ saplay -s 3
 $ saplay -os 6
 ```
 
+### Append additional arguments to the video player to display no subtitles
+
+```
+$ saplay -a --no-sub
+```
+
 ## Documentation
 
 #### Scanning order
@@ -61,6 +67,7 @@ The order of these scans can be switched using the `play_mode` setting in the co
 Usage:
    saplay [options]
 Options:
+   -a <args>    Append additional arguments to player
    -d <path>    Scan for directories
    -f <path>    Scan for files
    -h <path>    Get history of played files in <path>
